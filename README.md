@@ -5,42 +5,100 @@
 <h1 align="center">Claude Cairn</h1>
 
 <p align="center">
-  Save a Claude Code session's <em>thinking</em> — what you explored, decided, and
-  ruled out — as a portable note you can load into a fresh session anywhere, search, and share.
+  Save a Claude Code session's <em>thinking</em> (what you explored, decided, and
+  ruled out) as a portable note you can load into any fresh session, search, and share.
+</p>
+
+<p align="center">
+  <a href="https://github.com/arcAman07/claude-cairn/actions/workflows/test.yml"><img src="https://github.com/arcAman07/claude-cairn/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT">
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="python 3.10+">
+  <img src="https://img.shields.io/badge/dependencies-none-brightgreen.svg" alt="no dependencies">
 </p>
 
 ## What it is
 
+Every Claude Code session starts from a blank slate. On a long project the reasoning
+behind the current state, especially the directions you explored and **rejected**, is
+lost when the session ends or its context compacts. Native `/resume` only replays one
+transcript, locked to where it ran.
+
 Claude Cairn is a Claude Code plugin for **knowledge continuity, not code
-management**. It distills a session's reasoning — the summary, the directions you
-explored and *rejected* (with why), the decisions, open questions, a pointer-list
-of files, and the next step — into a self-contained markdown note. Load that note
-into a blank session in any directory or on any machine and you resume the
-*thinking*, not a transcript.
+management**. It distills a session's reasoning into a self-contained markdown note:
+a summary, the directions you explored and rejected (with the why), the decisions, a
+pointer list of files, and the next step. Load that note into a blank session in any
+directory or on any machine and you resume the *thinking*, not a transcript.
+
+> One honest detail: Claude Code does not persist verbatim chain-of-thought to disk.
+> So Cairn reconstructs the reasoning from what *is* on disk (the prose Claude wrote,
+> the tool actions it took, their results, and your instructions) and folds in
+> Claude's live memory when you checkpoint. It captures the real, recoverable signal.
+
+## Features
+
+- **Capture the why, including dead ends.** The note records the approaches you
+  rejected and the reason, so the next session does not re-litigate settled questions.
+- **Map, not dump.** Loading a note injects distilled thinking plus a pointer list of
+  files, never file contents. The session reads a file only on demand.
+- **Portable by nature.** Every note is one self-contained markdown file that works
+  across directories, machines, and teammates.
+- **Global store, load anywhere.** Notes live in `~/.claude/cairn/` so a load works
+  from any directory. Override the location with `CAIRN_HOME`.
+- **Auto-capture before compaction.** A `PreCompact` hook saves a raw note before
+  Claude Code compacts context, so exploration is never silently lost.
+- **Best-effort secret redaction.** API keys, tokens, PEM blocks, and connection
+  strings are redacted before a note is written (still review before sharing).
+- **Zero dependencies.** A single Python 3 standard-library engine. Nothing to install.
 
 ## Install
 
-Self-contained plugin — **Python 3 standard library only, no dependencies.**
-
-**From GitHub:**
+**From GitHub (marketplace):**
 
 ```
 /plugin marketplace add arcAman07/claude-cairn
 /plugin install cairn@arcAman07/claude-cairn
-/reload-plugins
 ```
 
-**Or run it from a local clone:**
+**Run a local clone for one session (no install):**
 
-```
+```bash
 git clone https://github.com/arcAman07/claude-cairn
 claude --plugin-dir ./claude-cairn
 ```
 
-Commands are namespaced under the plugin (`/cairn:checkpoint`, `/cairn:load`, …);
-the auto-capture hook and the skill load automatically — no restart needed. To
-also get bare aliases (`/checkpoint`, `/load`, `/find`, …), run
+Commands are namespaced under the plugin (`/cairn:checkpoint`, `/cairn:load`, and so
+on); the auto-capture hook and the skill load automatically. To also get bare aliases
+(`/checkpoint`, `/load`, `/find`, `/checkpoints`, `/export`) in every session, run
 `scripts/install-aliases.sh`.
+
+Requires only Python 3.10 or newer (standard library only).
+
+## Usage
+
+In one session, after doing some real work:
+
+```
+/cairn:checkpoint rate-limiting
+```
+
+Cairn reads the transcript, distills it, and saves a small note. Tomorrow, in a fresh
+session in any directory:
+
+```
+/cairn:load rate-limiting
+```
+
+The note's distilled thinking flows back in (including which approaches you rejected
+and why), and you pick up from the next step. You never reopen the old transcript.
+
+Other everyday moves:
+
+```
+/cairn:checkpoints                       # list all notes, newest first
+/cairn:find "token bucket"               # search across notes
+/cairn:checkpoint update rate-limiting   # append today's new thinking
+/cairn:export rate-limiting              # a clean standalone file to share
+```
 
 ## Commands
 
@@ -48,14 +106,38 @@ also get bare aliases (`/checkpoint`, `/load`, `/find`, …), run
 |---|---|
 | `/cairn:checkpoint [name]` | Distill this session's thinking into a note (auto-named if omitted). |
 | `/cairn:checkpoint update <name>` | Append this session's new thinking onto an existing note. |
-| `/cairn:checkpoints` | List all notes, newest first — the project's table of contents. |
-| `/cairn:load <name> [name2 …]` | Resume note(s) as context: distilled thinking + file *pointers*, never file contents. |
+| `/cairn:checkpoints` | List all notes, newest first: the project's table of contents. |
+| `/cairn:load <name> [name2 ...]` | Resume note(s) as context: distilled thinking plus file pointers, never file contents. |
 | `/cairn:find <query>` | Ranked keyword search across note bodies and tags. |
 | `/cairn:show <name>` | Preview a note in the terminal without loading it. |
 | `/cairn:export <name>` | Write a clean, standalone markdown file built for sharing. |
 | `/cairn:rm <name>` | Delete a note (previews first, then confirm). |
 
-## Learn more
+A `PreCompact` hook also auto-captures a raw note before Claude Code compacts, so
+nothing is silently lost.
 
-How capture, storage, loading, search, and export work — plus the note schema and
-design principles — is in **[DESIGN.md](DESIGN.md)**.
+## How it works
+
+Cairn splits into a deterministic engine and the model's judgment. The engine
+(`lib/cairn.py`, Python 3 standard library only) does the mechanical work: worktree
+and multi-session-safe transcript resolution, a streaming digest with redaction, the
+note store, and ranked search. The actual distillation, turning a reasoning trace into
+a good note, is Claude's job, driven by the prompts in `commands/`. Notes are the
+source of truth; `index.json` is a derived cache that rebuilds itself if lost.
+
+Full details (the note schema, redaction, the digest, the continuity tiers) are in
+**[DESIGN.md](DESIGN.md)**.
+
+## Verify it
+
+```bash
+python3 lib/cairn.py selftest      # one-command smoke test
+bash tests/run_tests.sh            # full unit suite (standard library only)
+bash tests/verify_install.sh       # validate the plugin tree
+```
+
+130 tests, 93% coverage, lint-clean.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

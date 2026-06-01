@@ -4,7 +4,7 @@ Cairn is small and dependency-free, so it's easy to hack on. Thanks for helping.
 
 ## Setup
 
-- Requires **Python 3** — standard library only, nothing to `pip install`.
+- Requires **Python 3**, standard library only, nothing to `pip install`.
 - Layout: the engine is `lib/cairn.py`; slash-command prompts live in `commands/`;
   the skill is `skills/cairn/SKILL.md`; hooks are in `hooks/`.
 - To run your working copy inside Claude Code during development:
@@ -16,7 +16,7 @@ Cairn is small and dependency-free, so it's easy to hack on. Thanks for helping.
 
 ## Running the tests
 
-Stdlib `unittest` — no test dependencies:
+Stdlib `unittest`, no test dependencies:
 
 ```
 python3 lib/cairn.py selftest      # fast in-process smoke test
@@ -32,18 +32,18 @@ All three should pass before you open a PR.
   for a package, find a standard-library way instead.
 - **Engine is deterministic; Claude does the judgment.** Mechanical work (transcript
   parsing, redaction, the note store, search) lives in `lib/cairn.py`. Distillation
-  *quality* lives in the `commands/*.md` prompts. Keep that split — don't put
+  *quality* lives in the `commands/*.md` prompts. Keep that split, don't put
   judgment in the CLI or plumbing in the prompts.
 - **Notes are the source of truth; `index.json` is a derived cache.** Write notes
   atomically; never make the index authoritative (it must be rebuildable with
   `cairn.py reindex`).
-- **Redact before writing — and before truncating.** Any new path that emits
+- **Redact before writing, and before truncating.** Any new path that emits
   transcript content must pass through `redact_text` first.
 - **Hooks must never crash a session.** Hook scripts always exit 0 and swallow their
   own errors.
 - Match the surrounding style: 4-space indent, clear names, and comments that
   explain *why*. Add or update a test for any behavior change.
-- Keep the six-section note format stable — `/cairn:checkpoint update` relies on it.
+- Keep the six-section note format stable, `/cairn:checkpoint update` relies on it.
 
 ## Opening a PR
 

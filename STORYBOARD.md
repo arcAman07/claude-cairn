@@ -1,85 +1,68 @@
-# Claude Cairn — launch video storyboard
+# Claude Cairn: launch video storyboard
 
-**Format:** ~36s, 1920×1080, 60fps, **no narration** (text-on-screen only).
-**Engine:** Manim CE 0.20.1 via `python3 -m manim`. **Text/MarkupText only — no LaTeX.**
-**One concrete example end-to-end:** choosing a **rate-limiting** algorithm.
-The payoff beat is recovering the **rejected** directions (and *why*) in a fresh session.
+**Format:** ~32s, 1920×1080, 60fps**no narration** (text-on-screen only).
+**Engine:** Manim CE 0.20.1 via `python3 -m manim`. **Text only, no LaTeX.**
+**Scenario:** on a web project you design two features in one session, checkpoint each,
+then load them in two separate terminals and build in parallel.
 
 ## Type & palette
-- **Type:** Avenir Next (UI: headings, wordmark, captions) · Menlo (terminal lines, commands, note body).
-- **Brand accent:** teal `#1FA39A` (per brief) = the "chosen / loaded / command" signal.
+- **Type:** Avenir Next (headings, wordmark, captions) · Menlo (terminal lines, commands).
+- **Brand accent:** teal `#1FA39A` = the "chosen / command / context-loaded" signal.
 - **Background:** dark `#10201E`. **Text:** `#EAF1F0`. **Muted:** `#7E938F`. **Panel:** `#182B29`.
-- **Rejected options:** muted + strikethrough (so teal reads as "the good path").
-- **Logo:** the real `assets/logo.png` (terracotta cairn) embedded at the end — teal + terracotta
-  is a deliberate complementary pair on the dark bg. *(If you'd rather the whole video be terracotta
-  to match the logo/DESIGN palette instead of teal, say so — one-line change.)*
+- **Logo:** the real `assets/logo.png` (terracotta cairn) embedded on the end card.
 
 ---
 
-## Beat 1 — You reason through a hard problem  (~8s)
-**Heading (top):** `You reason through a hard problem`
-**Terminal window** `claude code · session`, lines type/fade in (Menlo):
+## Beat 1: Design a couple of features  (~9s)
+**Heading:** `Design a couple of features`
+**Window** `claude code · web-app`, lines type in (Menlo):
 ```
-considering: API rate limiting
-fixed-window  — boundary bursts        ← struck through (rejected)
-leaky-bucket  — no bursts allowed      ← struck through (rejected)
-token-bucket  — bursts + smooth avg    ← teal (chosen)
+web app · v1, designing two features
+auth       sessions → JWT + refresh
+database   Postgres, raw SQL
+designed both, time to build
 ```
-**Motion:** four lines appear in sequence; a strikethrough draws across the two rejected lines;
-`token-bucket` turns teal. **Transition out:** hold ~1.2s.
+`auth` and `database` highlight in teal (the two features). **Hold ~2.6s.**
 
-## Beat 2 — Checkpoint the thinking  (~7s)
-**Heading:** `Checkpoint the thinking`
-**Command (typed, teal, Menlo):** `/cairn:checkpoint rate-limiting`
-**A note card forms** (the real Cairn note shape):
+## Beat 2: Checkpoint each one  (~10s)
+**Heading:** `Checkpoint each one`
+**Commands (typed, teal):** `/cairn:checkpoint auth` and `/cairn:checkpoint database`
+**Two note cards form side by side** (real Cairn note shape):
 ```
-rate-limiting                         #api
-──────────────────────────────────────────
-Summary
-chose token-bucket for API rate limiting
-Directions explored
-token-bucket — chosen
-fixed-window — rejected: boundary bursts     ← struck
-leaky-bucket — rejected: no bursts           ← struck
-Next step
-add token-bucket middleware in api/limit.ts
+auth      #feature           database  #feature
+Summary                      Summary
+JWT auth + refresh tokens    Postgres data layer
+Decisions                    Decisions
+JWT, not server sessions     raw SQL, not an ORM
+Next                         Next
+build POST /auth/login       write schema.sql
 ```
-**Motion:** command types in; the session's reasoning condenses into the card section-by-section;
-a teal border "seal" pulse. **Caption:** `a portable note — the decision and the dead ends`.
+**Caption:** `two checkpoints, one per feature`. **Hold ~3s.**
 
-## Beat 3 — The gap  (~5s)
-**Heading:** `Days later. A different machine.`
-**Motion:** the session window dims and collapses; a **blank** new session window fades up with a
-blinking cursor. **Caption (muted):** `normally, the reasoning is gone`.
+## Beat 3: Load each in its own terminal  (~13s)  ← the point
+**Heading:** `Load each in its own terminal`
+**Two terminals side by side** (`claude code · auth`, `claude code · database`); a note
+flies into each; each fills in (Menlo):
+```
+$ /cairn:load auth            $ /cairn:load database
+context loaded                context loaded
+next: build POST /auth/login  next: write schema.sql
+implementing…                 implementing…
+```
+**Caption (teal):** `design context already loaded, build in parallel`. **Hold ~3.2s.**
 
-## Beat 4 — Load it — the reasoning comes back  (~10s)  ← the point
-**Heading:** `Load it — the reasoning comes back`
-**Command (teal):** `/cairn:load rate-limiting`
-**The note flows into the blank session;** lines reappear (Menlo):
+## Beat 4: End card  (~7s)
 ```
-resumed: rate-limiting
-token-bucket — chosen
-fixed-window — rejected: boundary bursts     ← pulses/highlights
-next: add middleware in api/limit.ts
-```
-**Caption (teal):** `…including what you ruled out — and why`
-**Motion:** the note travels into the new window; the `fixed-window — rejected` line pulses to land
-the payoff (you don't re-walk the dead end). Hold ~1.5s.
-
-## Beat 5 — End card  (~6s)
-**Visual (centered):**
-```
-        [ logo.png — the cairn ]
+        [ logo.png, the cairn ]
             Claude Cairn
    Save the thinking. Resume it anywhere.        (teal)
  Portable, distilled session notes for Claude Code.   (muted)
  /cairn:checkpoint   /cairn:load   /cairn:find   /cairn:checkpoints   (Menlo, muted)
 ```
-**Motion:** logo fades up; wordmark, tagline, one-liner, then the command row stagger in. Hold ~2.5s.
 
 ---
 
-**Duration budget:** 8 + 7 + 5 + 10 + 6 = **36s** (within 30–45s).
-**Truth check:** every command shown is real (`/cairn:checkpoint`, `/cairn:load`, `/cairn:find`,
-`/cairn:checkpoints`); the note shape matches `commands/checkpoint.md` (Summary · Directions explored
-with rejected options · Next step); no invented features.
+**Actual duration:** 32.4s (no-narration). **Truth check:** every command shown is real
+(`/cairn:checkpoint`, `/cairn:load`, `/cairn:find`, `/cairn:checkpoints`); the note shape
+matches `commands/checkpoint.md` (Summary · Decisions · Next, with the chosen-vs-rejected
+captured in Decisions); no invented features.

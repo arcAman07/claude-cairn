@@ -132,7 +132,7 @@ class CairnDemo(Scene):
         self.play(FadeIn(ls[2], shift=RIGHT * 0.15), run_time=0.55)
         self.wait(0.12)
         self.play(FadeIn(ls[3], shift=RIGHT * 0.15), run_time=0.5)
-        self.wait(1.8)
+        self.wait(2.6)
         self.lines = ls
 
     # 2 — checkpoint each into its own note
@@ -152,10 +152,10 @@ class CairnDemo(Scene):
         self.play(FadeOut(self.win), FadeOut(self.lines), FadeOut(cue),
                   FadeIn(nA.card, shift=UP * 0.1), FadeIn(nB.card, shift=UP * 0.1), run_time=0.6)
         self.play(LaggedStart(*[FadeIn(m, shift=UP * 0.05) for m in [*nA.col, *nB.col]],
-                              lag_ratio=0.07), run_time=1.8)
+                              lag_ratio=0.07), run_time=2.2)
         cap = caption("two checkpoints — one per feature").next_to(VGroup(nA, nB), DOWN, buff=0.34)
         self.play(FadeIn(cap), run_time=0.5)
-        self.wait(2.0)
+        self.wait(3.0)
 
     # 3 — load each in its own terminal, build in parallel
     def beat3_terminals(self):
@@ -164,7 +164,7 @@ class CairnDemo(Scene):
         wins = [window(6.3, 4.4, "claude code · " + f["name"]).move_to(
             (LEFT if i == 0 else RIGHT) * 3.55 + DOWN * 0.42) for i, f in enumerate(FEATURES)]
         self.play(*[FadeIn(w, shift=UP * 0.12) for w in wins], run_time=0.7)
-        self.wait(0.3)
+        self.wait(0.6)
         flyers = [feature_note(f, w=3.0, h=2.9).scale(0.55).move_to(wins[i].get_center() + UP * 1.95)
                   for i, f in enumerate(FEATURES)]
         self.play(*[FadeIn(n, shift=DOWN * 0.15) for n in flyers], run_time=0.5)
@@ -182,12 +182,12 @@ class CairnDemo(Scene):
         self.play(*[flyers[i].animate.move_to(loaded[i].get_center()).scale(0.35).set_opacity(0)
                     for i in range(2)], run_time=0.9)
         for r in range(4):
-            self.play(*[FadeIn(loaded[i][r], shift=RIGHT * 0.1) for i in range(2)], run_time=0.5)
-            self.wait(0.12)
+            self.play(*[FadeIn(loaded[i][r], shift=RIGHT * 0.1) for i in range(2)], run_time=0.6)
+            self.wait(0.16)
         cap = caption("design context already loaded — build in parallel", TEAL).next_to(
             VGroup(*wins), DOWN, buff=0.34)
         self.play(FadeIn(cap), run_time=0.5)
-        self.wait(2.3)
+        self.wait(3.2)
 
     # 4 — end card
     def beat4_end(self):
@@ -201,4 +201,4 @@ class CairnDemo(Scene):
         self.play(FadeIn(name, shift=UP * 0.1), run_time=0.6)
         self.play(FadeIn(tag), run_time=0.5)
         self.play(FadeIn(one), FadeIn(cmds), run_time=0.6)
-        self.wait(3.0)
+        self.wait(3.6)

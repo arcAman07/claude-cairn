@@ -10,9 +10,10 @@ fixtures pass the summary rubric + resume test · 0 redaction leaks · 40 defect
 found across both rounds, all resolved or consciously accepted.
 
 > Note: `assets/` (logo, Manim launch animation), `DESIGN.md`, `CONTRIBUTING.md`,
-> and `LAUNCH.md` were authored out-of-band (not by the build). `from manim import
-> *` in `assets/cairn_launch.py` is idiomatic Manim and is not linted here. (An
-> earlier stale `cairn-design.md` draft was removed once `DESIGN.md` superseded it.)
+> `LAUNCH.md`, and `STORYBOARD.md` were authored out-of-band (not by the build).
+> `from manim import *` in `assets/cairn_demo.py` is idiomatic Manim and is not
+> linted here. (An earlier `cairn-design.md` draft was removed once `DESIGN.md`
+> superseded it, and `cairn_launch.py` once `cairn_demo.py` superseded it.)
 
 ---
 

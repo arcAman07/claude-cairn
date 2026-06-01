@@ -1,0 +1,12 @@
+{
+  "name": "cairn",
+  "version": "1.0.0",
+  "description": "Portable knowledge-continuity notes for Claude Code. Distill a session's thinking — decisions, the directions explored AND rejected, open questions, file pointers, next step — into a markdown note you can load into a fresh session anywhere, search, and export. Knowledge continuity, not git/code tracking.",
+  "author": {
+    "name": "Aman",
+    "email": "amananytime07@gmail.com"
+  },
+  "homepage": "https://github.com/arcAman07/claude-cairn",
+  "license": "MIT",
+  "keywords": ["memory", "context", "checkpoint", "continuity", "notes", "resume"]
+}

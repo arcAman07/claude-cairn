@@ -1,0 +1,17 @@
+{
+  "description": "Claude Cairn — auto-capture session thinking before context compaction so exploration is never silently lost.",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/precompact_capture.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

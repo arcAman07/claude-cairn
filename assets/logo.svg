@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Claude Cairn">
+  <title>Claude Cairn</title>
+  <desc>A cairn of four stacked stones; the top stone is terracotta.</desc>
+  <!-- Each stone: a darker base for a shadow lip, then the lighter face on top. -->
+  <!-- Base stone -->
+  <rect x="9"    y="43" width="46" height="13"  rx="6.5" fill="#9C8C72"/>
+  <rect x="9"    y="43" width="46" height="9.5" rx="6.5" fill="#B8A98E"/>
+  <!-- Second stone -->
+  <rect x="13.5" y="30" width="37" height="11"  rx="5.5" fill="#9C8C72"/>
+  <rect x="13.5" y="30" width="37" height="8"   rx="5.5" fill="#B8A98E"/>
+  <!-- Third stone -->
+  <rect x="18.5" y="19" width="27" height="9"   rx="4.5" fill="#9C8C72"/>
+  <rect x="18.5" y="19" width="27" height="6.5" rx="4.5" fill="#B8A98E"/>
+  <!-- Keystone (accent) -->
+  <rect x="23"   y="8"  width="18" height="9"   rx="4.5" fill="#A24E2D"/>
+  <rect x="23"   y="8"  width="18" height="6.8" rx="4.5" fill="#C2613A"/>
+</svg>

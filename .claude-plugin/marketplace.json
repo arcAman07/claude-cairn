@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cairn",
+  "description": "Claude Cairn — portable knowledge-continuity notes for Claude Code.",
+  "owner": {
+    "name": "Aman",
+    "email": "amananytime07@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "cairn",
+      "description": "Distill a session's thinking — decisions, the directions explored AND rejected, open questions, file pointers, next step — into a portable markdown note you can load into a fresh session anywhere, search, and export. Knowledge continuity, not git/code tracking.",
+      "author": {
+        "name": "Aman",
+        "email": "amananytime07@gmail.com"
+      },
+      "category": "productivity",
+      "source": ".",
+      "homepage": "https://github.com/arcAman07/claude-cairn"
+    }
+  ]
+}

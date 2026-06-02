@@ -83,29 +83,67 @@ Requires only Python 3.10 or newer (standard library only).
 
 ## Usage
 
-In one session, after doing some real work:
+A single session often drifts across **unrelated threads**. Say that in one chat you
+implement a Transformer from scratch and, in the same session, a Soft Actor-Critic
+(SAC) agent. When the session ends or its context compacts, both threads are gone,
+and you can't split them out or continue either one later.
 
+### 1. Checkpoint each thread before it is lost
+
+After working through the first thread, distill it into its own note:
+
+```text
+> implement a Transformer from scratch
+  ● transformer.py · multi-head attention + FFN
+/cairn:checkpoint transformer
+  ✓ Saved checkpoint · transformer
 ```
-/cairn:checkpoint rate-limiting
+
+Then the second thread, into a separate note:
+
+```text
+> also: implement Soft Actor-Critic (SAC)
+  ● sac.py · actor + twin critics + entropy temp
+/cairn:checkpoint sac
+  ✓ Saved checkpoint · sac
 ```
 
-Cairn reads the transcript, distills it, and saves a small note. Tomorrow, in a fresh
-session in any directory:
+Two threads, two checkpoints, cleanly separated. Each note captures the summary, the
+directions you explored **and rejected** (with the why), a pointer list of files, and
+the next step, distilled from the session rather than dumped as a raw transcript.
 
+### 2. Resume each thread in a fresh session
+
+Later, in a new session (any directory, any machine), load just the thread you want.
+The distilled thinking flows back in and you continue from the next step, never
+reopening the old transcript:
+
+```text
+/cairn:load transformer
+  resumed · transformer
+  summary: MHA + FFN blocks, pre-norm
+  next:    add positional encoding + train
 ```
-/cairn:load rate-limiting
+
+```text
+/cairn:load sac
+  resumed · sac
+  summary: actor + twin critics + entropy temperature
+  next:    add a replay buffer + the train loop
 ```
 
-The note's distilled thinking flows back in (including which approaches you rejected
-and why), and you pick up from the next step. You never reopen the old transcript.
+Checkpoints carry your context from one session to the next, including which
+approaches you rejected and why, so the new session never re-litigates settled
+questions.
 
-Other everyday moves:
+### 3. Everyday moves
 
-```
-/cairn:checkpoints                       # list all notes, newest first
-/cairn:find "token bucket"               # search across notes
-/cairn:checkpoint update rate-limiting   # append today's new thinking
-/cairn:export rate-limiting              # a clean standalone file to share
+```bash
+/cairn:checkpoints                  # list all notes, newest first
+/cairn:find "twin critics"          # ranked search across every note body and tags
+/cairn:show sac                     # preview a note in the terminal without loading it
+/cairn:checkpoint update sac        # append today's new thinking onto the sac note
+/cairn:export transformer           # write a clean, shareable standalone markdown file
 ```
 
 ## Commands

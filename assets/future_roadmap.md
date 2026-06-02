@@ -12,7 +12,24 @@ and says which layer it touches.
 
 ---
 
-## Priority 1 - Checkpoint *scope modes* (the Layer 2 flexibility)
+## Shipped in v1.5 (branch `version_1.5`)
+
+- **DONE - Priority 1: Checkpoint scope modes.** `/cairn:checkpoint full <name>`
+  and the engine's `save --scope full|focused|delta`; scope recorded in
+  frontmatter + index and shown in `list`/`show`.
+- **DONE - Priority 2 commands:** `rename`, `tag`, `pin`/`unpin`, `recent`,
+  `merge` (deterministic structural merge), `diff` (structural compare).
+- **DONE - Priority 6: read-only MCP server** (`mcp/cairn_mcp.py`): JSON-RPC over
+  stdio exposing `cairn_checkpoints`/`find`/`show`/`load`/`recent`/`path`.
+- **DONE - Priority 7 (partial):** `scope`/`pinned` in frontmatter + index entries
+  (backward compatible, no schema bump).
+
+Still open below: `diff`/`merge` polish, the remaining Priority 2 items not yet
+built (e.g. `graph`), Priorities 3-6 non-MCP work, and the rest of Priority 7.
+
+---
+
+## Priority 1 - Checkpoint *scope modes* (the Layer 2 flexibility)  [DONE in v1.5]
 
 **Problem.** Today a second checkpoint has only two behaviors, and the most
 useful one is missing:

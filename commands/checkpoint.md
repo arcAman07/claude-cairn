@@ -1,6 +1,6 @@
 ---
-description: Distill this session's thinking into a portable Cairn note (capture decisions and the directions you explored AND rejected). Use "update <name>" to append new thinking to an existing note.
-argument-hint: [name] | update <name>
+description: Distill this session's thinking into a portable Cairn note (capture decisions and the directions you explored AND rejected). Use "update <name>" to append new thinking, or "full <name>" to summarize EVERY topic from the whole session.
+argument-hint: [name] | full <name> | update <name>
 allowed-tools: Bash, Read, Write
 model: inherit
 ---
@@ -29,13 +29,27 @@ the user no transcript was found and stop. The transcript is written incremental
 so it already contains everything up to the previous turn; combine it with your
 live memory of the current turn.
 
-## Step 2 — Decide: new note or update?
-- If `$ARGUMENTS` begins with `update`, this is an **update**: the note name is
-  the rest of the argument (e.g. `update auth refactor` → name `auth refactor`).
-  Go to **Update flow**.
-- Otherwise this is a **new checkpoint**. The note name is `$ARGUMENTS` if given,
-  else invent a short, specific, kebab-friendly name from the session's actual
-  topic (e.g. `jwt-auth-refactor`, not `checkpoint-1`). Go to **New flow**.
+## Step 2 — Decide: new note, update, or full?
+Parse the FIRST word of `$ARGUMENTS` for an optional mode keyword:
+- `update <name>` → an **update**: append only the NEW thinking to an existing
+  note. The name is the rest of the argument (e.g. `update auth refactor` → name
+  `auth refactor`). Go to **Update flow**.
+- `full <name>` → a **new checkpoint** built with **`--scope full`**: summarize
+  EVERY distinct topic discussed this session, not just the latest. Go to **New
+  flow** and follow the **Full-scope shape** below.
+- `focused <name>`, or no keyword → a **new checkpoint** with the default
+  **`--scope focused`**: scope the note to the current working thread. Go to
+  **New flow**.
+
+In every new-checkpoint case the note name is the remaining `$ARGUMENTS` if given,
+else invent a short, specific, kebab-friendly name from the session's actual topic
+(e.g. `jwt-auth-refactor`, not `checkpoint-1`). Remember the chosen scope
+(`full` or `focused`) — you pass it to `save` in Step 3.
+
+> Why this matters: a checkpoint runs in two layers. The `digest` (Step 1) hands
+> you the WHOLE session regardless; YOU decide what lands in the note. `focused`
+> = keep the current thread; `full` = deliberately keep every topic. See
+> `assets/notes.md` for the full explanation.
 
 ## New flow
 1. Get the reconstructed reasoning trace from disk (already redacted):
@@ -116,10 +130,20 @@ live memory of the current turn.
    ```
    (No Directions/Decisions/Open-questions headers at all, because nothing real
    would go in them.)
-3. Save it (the CLI adds frontmatter + updates the index):
+
+   **Full-scope shape (ONLY when the mode is `full`):** instead of one focused
+   note, open with a `## Topics` table of contents listing EVERY distinct thread
+   this session touched, then give each topic its own short distilled block (a
+   one-line summary plus its decisions / open questions / next step where real).
+   Drop nothing — a `full` note is a complete map of the session, not just the
+   last thing discussed. Keep each block tight (depth belongs in the referenced
+   files). The required `## Summary`, `## Files & areas to look at`, and
+   `## Next step` still frame the whole note.
+3. Save it (the CLI adds frontmatter + updates the index). Pass the scope you
+   chose in Step 2 (`full` or `focused`):
    ```
    python3 "$CAIRN" save --name "<name>" --session "<SESSION>" --cwd "$PWD" \
-     --tags "<comma,separated,topic,tags>" --body-file <tempfile>
+     --scope <full|focused> --tags "<comma,separated,topic,tags>" --body-file <tempfile>
    ```
 4. Delete the temp file. Report the saved note path the CLI printed, and a
    one-line summary of what you captured.

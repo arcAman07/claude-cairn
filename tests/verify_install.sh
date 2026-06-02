@@ -37,7 +37,8 @@ for f in lib/cairn.py hooks/precompact_capture.py; do
 done
 
 # 4. command files have YAML frontmatter
-for c in checkpoint checkpoints load find export show rm; do
+for c in checkpoint checkpoints load find export show rm \
+         recent rename tag pin unpin merge diff; do
   f="$ROOT/commands/$c.md"
   if [ -f "$f" ] && head -1 "$f" | grep -q '^---$'; then ok "command: /cairn:$c"
   else bad "command missing/no-frontmatter: $c"; fi
@@ -53,6 +54,13 @@ if python3 "$ROOT/lib/cairn.py" selftest >/dev/null 2>&1; then ok "cairn.py self
 # 7. hook runs and exits 0 on empty stdin
 echo "" | python3 "$ROOT/hooks/precompact_capture.py" >/dev/null 2>&1
 [ $? -eq 0 ] && ok "precompact hook exits 0 on empty stdin" || bad "precompact hook nonzero on empty stdin"
+
+# 8. MCP server present + its own smoke test passes
+if [ -f "$ROOT/mcp/cairn_mcp.py" ] && python3 "$ROOT/mcp/cairn_mcp.py" --selftest >/dev/null 2>&1; then
+  ok "mcp/cairn_mcp.py selftest"
+else
+  bad "mcp server missing or selftest failed"
+fi
 
 echo
 if [ "$FAIL" -eq 0 ]; then echo "INSTALL OK"; else echo "INSTALL HAS FAILURES"; fi

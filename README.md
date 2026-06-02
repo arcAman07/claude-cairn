@@ -105,16 +105,60 @@ Other everyday moves:
 | Command | Purpose |
 |---|---|
 | `/cairn:checkpoint [name]` | Distill this session's thinking into a note (auto-named if omitted). |
+| `/cairn:checkpoint full <name>` | Like checkpoint, but summarize EVERY topic this session as a table of contents (not just the current thread). |
 | `/cairn:checkpoint update <name>` | Append this session's new thinking onto an existing note. |
 | `/cairn:checkpoints` | List all notes, newest first: the project's table of contents. |
+| `/cairn:recent [--n N]` | The N most-recent notes (pinned first). |
 | `/cairn:load <name> [name2 ...]` | Resume note(s) as context: distilled thinking plus file pointers, never file contents. |
 | `/cairn:find <query>` | Ranked keyword search across note bodies and tags. |
 | `/cairn:show <name>` | Preview a note in the terminal without loading it. |
 | `/cairn:export <name>` | Write a clean, standalone markdown file built for sharing. |
+| `/cairn:rename <name> <new-name>` | Rename a note (its id and history are preserved). |
+| `/cairn:tag <name> [--add a,b] [--remove c]` | Add or remove tags on a note. |
+| `/cairn:pin <name>` / `/cairn:unpin <name>` | Pin a note to the top of lists (or remove the pin). |
+| `/cairn:merge --name <new> <a> <b> ...` | Merge several notes into one (deduped pointers, union tags). |
+| `/cairn:diff <a> <b>` | Structural diff of two notes: which sections and file pointers differ. |
 | `/cairn:rm <name>` | Delete a note (previews first, then confirm). |
 
 A `PreCompact` hook also auto-captures a raw note before Claude Code compacts, so
 nothing is silently lost.
+
+### Checkpoint scope: `focused` vs `full`
+
+A checkpoint runs in two layers: the engine's `digest` always hands Claude the
+WHOLE session, and Claude decides what lands in the note. By default
+(`--scope focused`) the note covers the current working thread. `/cairn:checkpoint
+full <name>` (`--scope full`) instead summarizes every distinct topic from the
+session as a `## Topics` table of contents, so a single note maps the whole
+session. See [assets/notes.md](assets/notes.md) for the full explanation.
+
+## MCP server (use Cairn from the desktop app, web, and IDEs)
+
+Cairn ships a small **read-only** MCP server so your notes are reachable from any
+MCP client, not just the CLI. Register it once:
+
+```bash
+claude mcp add cairn -- python3 /absolute/path/to/claude-cairn/mcp/cairn_mcp.py
+```
+
+Or add it to an `.mcp.json` the client reads:
+
+```json
+{
+  "mcpServers": {
+    "cairn": {
+      "command": "python3",
+      "args": ["/absolute/path/to/claude-cairn/mcp/cairn_mcp.py"]
+    }
+  }
+}
+```
+
+It exposes read-only tools (`cairn_checkpoints`, `cairn_find`, `cairn_show`,
+`cairn_load`, `cairn_recent`, `cairn_path`) so any surface can browse and RESUME
+notes, but never create, edit, or delete them. `cairn_load` honors map-not-dump:
+it returns distilled thinking plus file pointers, never file contents. The store
+location follows `CAIRN_HOME` (default `~/.claude/cairn`).
 
 ## How it works
 
@@ -132,11 +176,12 @@ Full details (the note schema, redaction, the digest, the continuity tiers) are 
 
 ```bash
 python3 lib/cairn.py selftest      # one-command smoke test
+python3 mcp/cairn_mcp.py --selftest  # MCP server smoke test
 bash tests/run_tests.sh            # full unit suite (standard library only)
 bash tests/verify_install.sh       # validate the plugin tree
 ```
 
-130 tests, 93% coverage, lint-clean.
+181 tests, standard library only, lint-clean.
 
 ## License
 

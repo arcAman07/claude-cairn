@@ -34,7 +34,9 @@ MAX_RESULT_CHARS = 200           # kept per tool result
 MAX_TOOLREF_CHARS = 200          # kept per tool-use one-liner
 PRE_BOUNDARY_TURNS = 12          # turns before a compaction marker to prioritise
 FM_KEYS = ["id", "name", "created", "updated", "session_id", "cwd",
-           "tags", "parent", "source", "summary", "last_timestamp"]
+           "tags", "parent", "source", "summary", "last_timestamp",
+           "scope", "pinned"]
+SCOPE_CHOICES = ["full", "focused", "delta"]   # checkpoint breadth (see notes.md)
 
 # --------------------------------------------------------------------------
 # Store location
@@ -712,9 +714,13 @@ def parse_note(path):
     # String-typed scalars must be strings: a numeric `created: 20260601` etc.
     # would otherwise crash date slicing / sorting in list/find.
     for k in ("id", "name", "created", "updated", "last_timestamp",
-              "session_id", "cwd", "summary", "source"):
+              "session_id", "cwd", "summary", "source", "scope"):
         if k in meta and meta[k] is not None and not isinstance(meta[k], str):
             meta[k] = str(meta[k])
+    # `pinned` is a bool; a hand-edited "true"/"1"/"yes" must not read as truthy-string.
+    if "pinned" in meta and not isinstance(meta["pinned"], bool):
+        v = meta["pinned"]
+        meta["pinned"] = str(v).strip().lower() in ("true", "1", "yes", "on")
     return meta, body
 
 
@@ -803,7 +809,7 @@ class FileLock:
 def index_entry_from_meta(meta, fname):
     e = {k: meta.get(k) for k in
          ("id", "name", "created", "updated", "session_id", "cwd", "tags",
-          "parent", "source", "summary", "last_timestamp")}
+          "parent", "source", "summary", "last_timestamp", "scope", "pinned")}
     e["file"] = fname
     return e
 
@@ -904,6 +910,26 @@ def _by_recency(notes):
                   reverse=True)
 
 
+def _by_pinned_recency(notes):
+    """Pinned notes first, each group newest-first. Deterministic + stable."""
+    return sorted(notes, key=lambda n: (1 if n.get("pinned") else 0,
+                                        str(n.get("updated") or n.get("created") or "")),
+                  reverse=True)
+
+
+def _print_note_line(n):
+    """One note's three-line block for `list` / `recent`. A note with no scope
+    or pin renders exactly as it did in v1 (the markers only appear when set)."""
+    tags = " ".join("#" + t for t in _safe_tags(n))
+    src = " (auto)" if n.get("source") == "auto" else ""
+    pin = "📌 " if n.get("pinned") else ""
+    scope = " {%s}" % n.get("scope") if n.get("scope") else ""
+    print("• %s%s%s   [%s]%s  %s"
+          % (pin, n.get("name"), src, _fmt_date(n.get("updated")), scope, tags))
+    print("    %s" % (n.get("summary") or ""))
+    print("    id: %s" % n.get("id"))
+
+
 def extract_summary(body):
     """One-line summary: the first paragraph of the Summary section, with
     hard-wrapped lines joined, cut at a sentence boundary near 240 chars."""
@@ -930,12 +956,125 @@ def extract_summary(body):
 
 
 # --------------------------------------------------------------------------
+# Section helpers (for merge / diff) + edit-target resolution
+# --------------------------------------------------------------------------
+
+# Section parsing for merge/diff. These are FENCE-AWARE: a '## ...' line inside a
+# ``` or ~~~ code block is NOT treated as a section header (a note may embed a
+# code snippet), and ALL occurrences of a repeated header are handled, not just
+# the first. A header must be '## ' + space (standard markdown) so the three
+# helpers below agree on what a header is.
+_FENCE_RE = re.compile(r"^(```+|~~~+)")
+_H2_RE = re.compile(r"^##\s+(.+?)\s*$")
+
+
+def _split_sections(body):
+    """Parse a note body into [(title, header_line, content_lines)] split at
+    level-2 ('## ') headers, ignoring headers inside fenced code blocks. The
+    pre-first-header chunk has title=None, header_line=None."""
+    out = [(None, None, [])]
+    fence = None
+    for line in (body or "").splitlines():
+        s = line.lstrip()
+        fm = _FENCE_RE.match(s)
+        if fm:
+            tok = fm.group(1)
+            if fence and s.startswith(fence):
+                fence = None                  # closing fence
+            elif not fence:
+                fence = tok                   # opening fence
+            out[-1][2].append(line)
+            continue
+        if fence is None:
+            hm = _H2_RE.match(line)
+            if hm:
+                out.append((hm.group(1).strip(), line, []))
+                continue
+        out[-1][2].append(line)
+    return out
+
+
+def _section_headers(body):
+    """Set of level-2 section titles (outside code fences)."""
+    return set(t for t, _, _ in _split_sections(body) if t)
+
+
+def _section_lines(body, header):
+    """Non-empty content lines under EVERY '## <header>' section (case-insensitive)."""
+    h = header.lower()
+    lines = []
+    for t, _, content in _split_sections(body):
+        if t and t.lower() == h:
+            lines.extend(ln for ln in content if ln.strip())
+    return lines
+
+
+def _strip_section(body, header):
+    """`body` with every '## <header>' section removed (for merge folding)."""
+    h = header.lower()
+    keep = []
+    for t, hl, content in _split_sections(body):
+        if t and t.lower() == h:
+            continue
+        if hl is not None:
+            keep.append(hl)
+        keep.extend(content)
+    return "\n".join(keep).strip()
+
+
+def _demote_headers(body):
+    """Add one '#' to each markdown header (## -> ###) so a source note's sections
+    sit cleanly UNDER a merged note's '## From ...' wrapper. Fence-aware: a '#'
+    that begins a line INSIDE a code block (a comment) is left untouched."""
+    out, fence = [], None
+    for line in (body or "").splitlines():
+        s = line.lstrip()
+        fm = _FENCE_RE.match(s)
+        if fm:
+            tok = fm.group(1)
+            if fence and s.startswith(fence):
+                fence = None
+            elif not fence:
+                fence = tok
+            out.append(line)
+            continue
+        if fence is None:
+            line = re.sub(r"^(#+)(\s)", lambda m: "#" + m.group(1) + m.group(2), line)
+        out.append(line)
+    return "\n".join(out)
+
+
+def _resolve_for_edit(store, query, action, note_id=None):
+    """Resolve exactly one note for an in-place edit, honoring --id to pick among
+    same-named notes. Returns (note, err) like `_resolve_one` but never guesses."""
+    matches = resolve_notes(store, query)
+    if not matches:
+        return None, "No note matches %r." % query
+    if note_id:
+        target = next((m for m in matches if m.get("id") == note_id), None)
+        if target is None:
+            return None, "No note named %r has id %r." % (query, note_id)
+        matches = [target]
+    if len(matches) > 1:
+        msg = ["%r matches %d notes; pass --id to choose (%s):"
+               % (query, len(matches), action)]
+        for m in matches[:10]:
+            msg.append("  %s  (%s)" % (m["id"], m["name"]))
+        return None, "\n".join(msg)
+    note = matches[0]
+    if not os.path.isfile(os.path.join(notes_dir(store), note.get("file") or "")):
+        return None, ("Note %r is in the index but its file is missing "
+                      "(run `cairn reindex`)." % note.get("name"))
+    return note, None
+
+
+# --------------------------------------------------------------------------
 # Commands
 # --------------------------------------------------------------------------
 
 def save_note(store, name, body, session="unknown", cwd=None, tags=None,
               parent=None, source="manual", summary=None, last_timestamp=None,
-              created=None, best_effort=False):
+              created=None, scope=None, pinned=False, best_effort=False):
     """Core new-note writer shared by `cmd_save` and the PreCompact hook.
     Returns (note_id, path, index_ok)."""
     store = ensure_store(store)
@@ -953,6 +1092,12 @@ def save_note(store, name, body, session="unknown", cwd=None, tags=None,
         "source": source, "summary": summary or extract_summary(body),
         "last_timestamp": last_timestamp or (created or ts),
     }
+    # Only persist the new fields when set, so a v1-shaped note (no scope/pin)
+    # stays byte-identical and old readers see exactly what they did before.
+    if scope:
+        meta["scope"] = scope
+    if pinned:
+        meta["pinned"] = True
     atomic_write(path, write_frontmatter(meta) + "\n\n" + body)
     ok = upsert_index(store, meta, note_id + ".md", best_effort=best_effort)
     return note_id, path, ok
@@ -1102,6 +1247,10 @@ def cmd_save(args):
         delta_sum = args.summary or extract_summary(body)
         if delta_sum:
             meta["summary"] = delta_sum
+        # Scope describes how the note was built; on update we only change it when
+        # the caller explicitly passes --scope, otherwise the existing scope stands.
+        if args.scope:
+            meta["scope"] = args.scope
         new_body = old_body.rstrip() + "\n\n---\n\n## Update — %s\n\n%s" % (ts, body)
         atomic_write(path, write_frontmatter(meta) + "\n\n" + new_body)
         upsert_index(store, meta, target["file"])
@@ -1113,6 +1262,7 @@ def cmd_save(args):
         cwd=args.cwd or os.getcwd(), tags=tags, parent=args.parent,
         source=args.source, summary=args.summary,
         last_timestamp=args.last_timestamp, created=args.created,
+        scope=args.scope or "focused", pinned=args.pinned,
         best_effort=args.best_effort)
     if not ok and args.best_effort:
         sys.stderr.write("cairn: index busy; note saved, index will lazy-rebuild\n")
@@ -1151,7 +1301,7 @@ def cmd_list(args):
     notes = idx["notes"]
     if args.project:
         notes = [n for n in notes if args.project in (n.get("cwd") or "")]
-    notes = _by_recency(notes)
+    notes = _by_pinned_recency(notes)
     if args.json:
         print(json.dumps(notes, indent=2, ensure_ascii=False))
         return 0
@@ -1161,24 +1311,20 @@ def cmd_list(args):
         return 0
     print("%d note(s) in %s\n" % (len(notes), store))
     for n in notes:
-        tags = " ".join("#" + t for t in _safe_tags(n))
-        src = " (auto)" if n.get("source") == "auto" else ""
-        print("• %s%s   [%s]  %s" % (n.get("name"), src, _fmt_date(n.get("updated")), tags))
-        print("    %s" % (n.get("summary") or ""))
-        print("    id: %s" % n.get("id"))
+        _print_note_line(n)
     return 0
 
 
-def cmd_find(args):
-    store = store_dir(args)
+def search_notes(store, query, project=None):
+    """Ranked keyword search -> list of (score, note), best first. Shared by the
+    `find` CLI and the MCP server so both rank identically. Empty query -> []."""
     idx = read_index(store)
     notes = idx["notes"]
-    if args.project:
-        notes = [n for n in notes if args.project in (n.get("cwd") or "")]
-    tokens = [t.lower() for t in re.split(r"\s+", args.query.strip()) if t]
+    if project:
+        notes = [n for n in notes if project in (n.get("cwd") or "")]
+    tokens = [t.lower() for t in re.split(r"\s+", (query or "").strip()) if t]
     if not tokens:
-        sys.stderr.write("cairn: empty query\n")
-        return 1
+        return []
     scored = []
     for n in notes:
         fn = n.get("file")
@@ -1197,6 +1343,15 @@ def cmd_find(args):
         if score > 0:
             scored.append((score, n))
     scored.sort(key=lambda s: (s[0], str(s[1].get("updated") or "")), reverse=True)
+    return scored
+
+
+def cmd_find(args):
+    store = store_dir(args)
+    if not [t for t in re.split(r"\s+", args.query.strip()) if t]:
+        sys.stderr.write("cairn: empty query\n")
+        return 1
+    scored = search_notes(store, args.query, project=args.project)
     if args.json:
         print(json.dumps([{**n, "score": s} for s, n in scored], indent=2,
                          ensure_ascii=False))
@@ -1246,15 +1401,24 @@ def cmd_show(args):
              meta.get("session_id")))
     if meta.get("tags"):
         print("_tags: %s_" % " ".join("#" + t for t in meta["tags"]))
+    bits = []
+    if meta.get("scope"):
+        bits.append("scope: %s" % meta.get("scope"))
+    if meta.get("pinned"):
+        bits.append("📌 pinned")
+    if bits:
+        print("_%s_" % " · ".join(bits))
     print()
     print(body.strip())
     return 0
 
 
-def cmd_load(args):
-    store = store_dir(args)
+def render_load(store, names):
+    """Map-not-dump load text for `names`: distilled note bodies + pointer lists,
+    NEVER file contents. Returns (text, n_resolved). Shared by the `load` CLI and
+    the MCP server so both honor the same guarantee and format identically."""
     resolved, missing, seen = [], [], set()
-    for name in args.names:
+    for name in names:
         note, err = _resolve_one(store, name, "load")
         if note:
             if note.get("id") in seen:       # `load foo foo` -> load it once
@@ -1264,21 +1428,27 @@ def cmd_load(args):
         else:
             missing.append((name, err))
     if not resolved:
-        for name, err in missing:
-            print(err)
-        return 1
-    print("# Resumed Cairn context — %d note(s)" % len(resolved))
-    print("> These notes are DISTILLED THINKING + POINTERS to files. They are your")
-    print("> loaded context. Do NOT open the referenced files unless the current")
-    print("> task actually requires them — the pointers are a map, not a dump.")
+        return "\n".join(err for _, err in missing), 0
+    out = ["# Resumed Cairn context — %d note(s)" % len(resolved),
+           "> These notes are DISTILLED THINKING + POINTERS to files. They are your",
+           "> loaded context. Do NOT open the referenced files unless the current",
+           "> task actually requires them — the pointers are a map, not a dump."]
     for note in resolved:
         meta, body = parse_note(os.path.join(notes_dir(store), note["file"]))
-        print("\n\n=== Note: %s  (created %s · session %s) ==="
-              % (meta.get("name"), _fmt_date(meta.get("created")), meta.get("session_id")))
-        print(body.strip())
+        out.append("\n\n=== Note: %s  (created %s · session %s) ==="
+                   % (meta.get("name"), _fmt_date(meta.get("created")),
+                      meta.get("session_id")))
+        out.append(body.strip())
     for name, err in missing:
-        print("\n[skipped] %s" % err.splitlines()[0])
-    return 0
+        out.append("\n[skipped] %s" % err.splitlines()[0])
+    return "\n".join(out), len(resolved)
+
+
+def cmd_load(args):
+    store = store_dir(args)
+    text, n = render_load(store, args.names)
+    print(text)
+    return 0 if n else 1
 
 
 def cmd_rm(args):
@@ -1346,6 +1516,199 @@ def cmd_export(args):
     return 0
 
 
+def _rewrite_note(store, note, meta, body):
+    """Persist edited (meta, body) for an existing note + refresh its index entry.
+    Keeps the id/filename stable; only the contents change."""
+    path = os.path.join(notes_dir(store), note["file"])
+    meta["updated"] = now_iso()
+    atomic_write(path, write_frontmatter(meta) + "\n\n" + body.strip() + "\n")
+    upsert_index(store, meta, note["file"])
+    return path
+
+
+def cmd_rename(args):
+    store = store_dir(args)
+    note, err = _resolve_for_edit(store, args.name, "rename", getattr(args, "id", None))
+    if err:
+        print(err)
+        return 0 if err.startswith("No note") else 2
+    meta, body = parse_note(os.path.join(notes_dir(store), note["file"]))
+    old = meta.get("name")
+    meta["name"] = args.new_name
+    _rewrite_note(store, note, meta, body)
+    print("Renamed %r -> %r (%s)" % (old, args.new_name, meta["id"]))
+    return 0
+
+
+def cmd_tag(args):
+    store = store_dir(args)
+    note, err = _resolve_for_edit(store, args.name, "tag", getattr(args, "id", None))
+    if err:
+        print(err)
+        return 0 if err.startswith("No note") else 2
+    meta, body = parse_note(os.path.join(notes_dir(store), note["file"]))
+    add, remove = _parse_tags(args.add), set(_parse_tags(args.remove))
+    if not add and not remove:
+        # Pure view: never rewrite the note (that would bump `updated`/reorder it).
+        print("Tags for %s: %s" % (meta.get("name"),
+              " ".join("#" + t for t in (meta.get("tags") or [])) or "(none)"))
+        return 0
+    tags = [t for t in (meta.get("tags") or []) if t not in remove]
+    for t in add:
+        if t not in tags:
+            tags.append(t)
+    meta["tags"] = tags
+    _rewrite_note(store, note, meta, body)
+    print("Tags for %s: %s" % (meta["name"],
+                               " ".join("#" + t for t in tags) or "(none)"))
+    return 0
+
+
+def cmd_pin(args):
+    store = store_dir(args)
+    note, err = _resolve_for_edit(store, args.name, "pin", getattr(args, "id", None))
+    if err:
+        print(err)
+        return 0 if err.startswith("No note") else 2
+    meta, body = parse_note(os.path.join(notes_dir(store), note["file"]))
+    if args.pinned:
+        meta["pinned"] = True
+    else:
+        meta.pop("pinned", None)          # unpin -> back to clean v1-shaped frontmatter
+    _rewrite_note(store, note, meta, body)
+    print("%s %s" % ("Pinned" if args.pinned else "Unpinned", meta["name"]))
+    return 0
+
+
+def cmd_recent(args):
+    store = store_dir(args)
+    idx = read_index(store)
+    notes = idx["notes"]
+    if args.project:
+        notes = [n for n in notes if args.project in (n.get("cwd") or "")]
+    notes = _by_pinned_recency(notes)[:max(1, args.n)]
+    if args.json:
+        print(json.dumps(notes, indent=2, ensure_ascii=False))
+        return 0
+    if not notes:
+        print("No cairn notes yet. Create one with /cairn:checkpoint "
+              "(or /checkpoint).")
+        return 0
+    print("%d most-recent note(s) in %s\n" % (len(notes), store))
+    for n in notes:
+        _print_note_line(n)
+    return 0
+
+
+def cmd_merge(args):
+    store = ensure_store(store_dir(args))
+    if len(args.sources) < 2:
+        sys.stderr.write("cairn: merge needs at least 2 source notes\n")
+        return 2
+    sources, seen = [], set()
+    for q in args.sources:
+        note, err = _resolve_one(store, q, "merge")
+        if err:
+            print(err)
+            return 0 if err.startswith("No note") else 2
+        if note.get("id") in seen:           # `merge x alpha alpha` -> include once
+            continue
+        seen.add(note.get("id"))
+        sources.append(note)
+    if len(sources) < 2:
+        sys.stderr.write("cairn: merge needs at least 2 DISTINCT source notes\n")
+        return 2
+
+    summary_bullets, parts, pointers, all_tags, merged_ids = [], [], [], [], []
+    seen_ptr = set()
+    for note in sources:
+        m, b = parse_note(os.path.join(notes_dir(store), note["file"]))
+        merged_ids.append(m.get("id"))
+        for t in (m.get("tags") or []):
+            if t not in all_tags:
+                all_tags.append(t)
+        summ = (m.get("summary") or extract_summary(b) or "").strip()
+        summary_bullets.append("- **%s:** %s" % (m.get("name"), summ))
+        for line in _section_lines(b, "Files & areas to look at"):
+            key = line.strip()
+            if key and key not in seen_ptr:
+                seen_ptr.add(key)
+                pointers.append(line.rstrip())
+        body_wo_files = _strip_section(b, "Files & areas to look at")
+        parts.append('## From "%s"\n\n%s'
+                     % (m.get("name"), _demote_headers(body_wo_files).strip()))
+
+    out = ["## Summary",
+           "Merged note combining %d checkpoint(s):" % len(sources)]
+    out += summary_bullets
+    out.append("")
+    for p in parts:                       # blank line between blocks so every
+        out += [p, ""]                    # '## From ...' header starts clean
+    out.append("## Files & areas to look at")
+    out += pointers if pointers else ["- (none)"]
+    out += ["", "## Merged from"]
+    out += ["- %s (%s)" % (n.get("name"), i) for n, i in zip(sources, merged_ids)]
+    body = "\n".join(out)
+
+    tags = list(all_tags)
+    for t in _parse_tags(args.tags):
+        if t not in tags:
+            tags.append(t)
+    nid, path, _ = save_note(
+        store, args.name, body, session=args.session or "merge",
+        cwd=args.cwd or os.getcwd(), tags=tags, parent=merged_ids[0],
+        scope="full",
+        summary="Merged: " + "; ".join(n.get("name") or "" for n in sources))
+    print("merged %d note(s) into %s\n%s" % (len(sources), nid, path))
+    return 0
+
+
+def cmd_diff(args):
+    store = store_dir(args)
+    a, erra = _resolve_one(store, args.a, "diff")
+    if erra:
+        print(erra)
+        return 0 if erra.startswith("No note") else 2
+    b, errb = _resolve_one(store, args.b, "diff")
+    if errb:
+        print(errb)
+        return 0 if errb.startswith("No note") else 2
+    ma, ba = parse_note(os.path.join(notes_dir(store), a["file"]))
+    mb, bb = parse_note(os.path.join(notes_dir(store), b["file"]))
+    secs_a, secs_b = _section_headers(ba), _section_headers(bb)
+    ptr_a = set(ln.strip() for ln in _section_lines(ba, "Files & areas to look at"))
+    ptr_b = set(ln.strip() for ln in _section_lines(bb, "Files & areas to look at"))
+    res = {
+        "a": ma.get("name"), "b": mb.get("name"),
+        "summary_changed": (ma.get("summary") or "") != (mb.get("summary") or ""),
+        "sections_only_in_a": sorted(secs_a - secs_b),
+        "sections_only_in_b": sorted(secs_b - secs_a),
+        "sections_common": sorted(secs_a & secs_b),
+        "pointers_only_in_a": sorted(ptr_a - ptr_b),
+        "pointers_only_in_b": sorted(ptr_b - ptr_a),
+        "pointers_common": sorted(ptr_a & ptr_b),
+    }
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return 0
+    print("# diff: %r  vs  %r" % (res["a"], res["b"]))
+    print("\nsummary: %s" % ("CHANGED" if res["summary_changed"] else "same"))
+
+    def _block(title, items):
+        print("\n%s:" % title)
+        if items:
+            for it in items:
+                print("  - %s" % it)
+        else:
+            print("  (none)")
+    _block("sections only in %r" % res["a"], res["sections_only_in_a"])
+    _block("sections only in %r" % res["b"], res["sections_only_in_b"])
+    _block("pointers only in %r" % res["a"], res["pointers_only_in_a"])
+    _block("pointers only in %r" % res["b"], res["pointers_only_in_b"])
+    _block("pointers in both", res["pointers_common"])
+    return 0
+
+
 def cmd_reindex(args):
     store = store_dir(args)
     idx = reindex(store)
@@ -1395,6 +1758,17 @@ def cmd_selftest(args):
         nf = os.listdir(notes_dir(tmp))[0]
         _, saved = parse_note(os.path.join(notes_dir(tmp), nf))
         check("note body has rejected direction", "rejected" in saved.lower())
+
+        # v1.5: scope + pin roundtrip, and rename keeps the id while changing name
+        sid, spath, _ = save_note(tmp, "scoped", body, session="ss-1", cwd="/p",
+                                  scope="full", pinned=True)
+        sm, sb = parse_note(spath)
+        check("scope+pin roundtrip", sm.get("scope") == "full" and sm.get("pinned") is True)
+        snote = resolve_notes(tmp, "scoped")[0]
+        sm["name"] = "renamed"
+        _rewrite_note(tmp, snote, sm, sb)
+        ridx = {n["id"]: n for n in read_index(tmp)["notes"]}
+        check("rename updates name + keeps id", ridx.get(sid, {}).get("name") == "renamed")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print("\n%s (%d failure(s))" % ("OK" if not fails else "FAILED", len(fails)))
@@ -1446,6 +1820,10 @@ def build_parser():
     sp.add_argument("--update", action="store_true")
     sp.add_argument("--id", help="disambiguate the note to --update")
     sp.add_argument("--body-file", dest="body_file")
+    sp.add_argument("--scope", choices=SCOPE_CHOICES,
+                    help="checkpoint breadth: full (all topics) | focused (current) | "
+                         "delta (since last); default focused on a new note")
+    sp.add_argument("--pinned", action="store_true", help="pin the new note to the top")
     sp.add_argument("--best-effort", dest="best_effort", action="store_true",
                     help="skip index write under lock contention (hooks)")
     sp.set_defaults(func=cmd_save)
@@ -1482,6 +1860,49 @@ def build_parser():
     sp = sub.add_parser("path", help="print a note's file path")
     sp.add_argument("name")
     sp.set_defaults(func=cmd_path)
+
+    sp = sub.add_parser("rename", help="rename a note's display name")
+    sp.add_argument("name")
+    sp.add_argument("new_name", metavar="new-name")
+    sp.add_argument("--id", help="disambiguate when the name matches several notes")
+    sp.set_defaults(func=cmd_rename)
+
+    sp = sub.add_parser("tag", help="add/remove tags on a note")
+    sp.add_argument("name")
+    sp.add_argument("--add", action="append", help="comma/space-separated tag(s) to add")
+    sp.add_argument("--remove", action="append", help="comma/space-separated tag(s) to remove")
+    sp.add_argument("--id", help="disambiguate when the name matches several notes")
+    sp.set_defaults(func=cmd_tag)
+
+    sp = sub.add_parser("pin", help="pin a note to the top of list/recent")
+    sp.add_argument("name")
+    sp.add_argument("--id", help="disambiguate when the name matches several notes")
+    sp.set_defaults(func=cmd_pin, pinned=True)
+
+    sp = sub.add_parser("unpin", help="unpin a note")
+    sp.add_argument("name")
+    sp.add_argument("--id", help="disambiguate when the name matches several notes")
+    sp.set_defaults(func=cmd_pin, pinned=False)
+
+    sp = sub.add_parser("recent", help="the N most-recent notes (pinned first)")
+    sp.add_argument("--n", type=int, default=10)
+    sp.add_argument("--json", action="store_true")
+    sp.add_argument("--project")
+    sp.set_defaults(func=cmd_recent)
+
+    sp = sub.add_parser("merge", help="merge several notes into one new note")
+    sp.add_argument("--name", required=True, help="name for the merged note")
+    sp.add_argument("sources", nargs="+", help="2+ source notes (by name or id)")
+    sp.add_argument("--tags", action="append")
+    sp.add_argument("--session")
+    sp.add_argument("--cwd")
+    sp.set_defaults(func=cmd_merge)
+
+    sp = sub.add_parser("diff", help="structural diff between two notes")
+    sp.add_argument("a")
+    sp.add_argument("b")
+    sp.add_argument("--json", action="store_true")
+    sp.set_defaults(func=cmd_diff)
 
     sp = sub.add_parser("reindex", help="rebuild index.json from note frontmatter")
     sp.set_defaults(func=cmd_reindex)

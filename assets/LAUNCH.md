@@ -81,40 +81,11 @@ Happy to answer questions, and I'd love feedback on the note format, that's the 
 
 ---
 
-## Product Hunt
+## How it's different (handy for replies / FAQ)
 
-**Name:** Claude Cairn
+Launch comments will ask "isn't this just X?". These answers are specific and defensible:
 
-**Tagline (<= 60 chars):**
-1. Context, shared across Claude Code sessions  (chosen, 45 chars)
-2. Checkpoint Claude Code's thinking, resume it anywhere  (53 chars)
-3. Portable memory notes for Claude Code  (37 chars)
-
-**Description (short):**
-Claude Cairn distills a Claude Code session's thinking, the summary, the directions you explored and rejected, the decisions, file pointers, and the next step, into a portable markdown note. Load it into a fresh session anywhere, search it, or hand it to a teammate. Knowledge continuity, not git.
-
-**Topics:** Developer Tools · Artificial Intelligence · Open Source · Productivity
-
-**Pricing:** Free, open source (MIT)
-
-**Links:**
-- Website / repo: github.com/arcAman07/claude-cairn
-
-**Maker's first comment:**
-Hey Product Hunt 👋
-
-I built Claude Cairn to fix something that kept biting me on long Claude Code projects: every session starts from a blank slate, and when one ends or its context is compacted, the reasoning behind where you landed is gone, especially the approaches you tried and deliberately ruled out. The next session happily re-walks those dead ends.
-
-Here's the subtle part: Claude Code doesn't persist its chain-of-thought to disk, so you can't just grep the transcript for it. Cairn reconstructs the reasoning from what IS on disk (your prose, the tool actions, their results) and distills it into a portable markdown note: a summary, the directions you explored and rejected with the why, the decisions, a pointer-list of files, and one concrete next step. Map, not dump, it stores pointers to files, never their contents.
-
-`/cairn:checkpoint` captures it. `/cairn:load` resumes that thinking in a fresh session, in any repo, on any machine, or for a teammate. `/cairn:checkpoints`, `/cairn:find`, and `/cairn:export` list, search, and share them. Notes are plain markdown in ~/.claude/cairn, so they stay yours to read and edit.
-
-It's a Claude Code plugin, Python standard library only, no dependencies.
-Install: `/plugin marketplace add arcAman07/claude-cairn` then `/plugin install cairn@arcAman07/claude-cairn`.
-
-Would love your feedback 🪨
-
-**Gallery suggestions:**
-- `assets/cairn-launch.mp4` (the ~44s demo) as the first gallery item.
-- `assets/logo.png` as the thumbnail / icon.
-- Optional: a still of a real checkpoint note and a `/cairn:load` resume in a fresh session.
+- **vs built-in Checkpointing / Rewind:** that is in-session, machine-local, unnamed code+conversation *undo*. Cairn is *named, portable* checkpoints you load by name into a different session, repo, or machine, distilled thinking, not a code time-machine.
+- **vs claude-mem / Mem0 / Supermemory:** those run a service, vector DB, or external AI-compression (Node, daemons, API keys). Cairn is a single Python standard-library engine, no service, no DB, no API key, and the distillation happens inside your live Claude Code session.
+- **vs claude-baton and other note plugins:** baton keeps only the "latest" checkpoint per project (no names) in SQLite. Cairn gives named, load-by-name notes in plain markdown, portable anywhere, with `/cairn:export` to share.
+- **What's actually distinctive:** named + load-by-name, plain-markdown + map-not-dump pointers, a first-class "directions explored AND rejected (with why)" section, and zero dependencies.

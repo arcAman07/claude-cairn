@@ -17,13 +17,12 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/arcAman07/claude-cairn/raw/main/assets/cairn-launch.mp4" controls muted loop width="760">
-    Your viewer can't play the embedded video.
-    <a href="https://github.com/arcAman07/claude-cairn/raw/main/assets/cairn-launch.mp4">Watch the demo here</a>.
-  </video>
+  <a href="https://github.com/arcAman07/claude-cairn/raw/main/assets/cairn-launch.mp4">
+    <img src="assets/cairn-launch.gif" alt="Claude Cairn demo: two threads in one session, each checkpointed and resumed cleanly" width="760">
+  </a>
 </p>
 
-<p align="center"><em>Checkpoint a session's thinking, then resume it in a fresh session anywhere.</em></p>
+<p align="center"><em>Checkpoint a session's thinking, then resume it in a fresh session anywhere. (Click the demo for the full-resolution video.)</em></p>
 
 ## What it is
 

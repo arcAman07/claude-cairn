@@ -16,6 +16,15 @@
   <img src="https://img.shields.io/badge/dependencies-none-brightgreen.svg" alt="no dependencies">
 </p>
 
+<p align="center">
+  <video src="https://github.com/arcAman07/claude-cairn/raw/main/assets/cairn-launch.mp4" controls muted loop width="760">
+    Your viewer can't play the embedded video.
+    <a href="https://github.com/arcAman07/claude-cairn/raw/main/assets/cairn-launch.mp4">Watch the demo here</a>.
+  </video>
+</p>
+
+<p align="center"><em>Checkpoint a session's thinking, then resume it in a fresh session anywhere.</em></p>
+
 ## What it is
 
 Every Claude Code session starts from a blank slate. On a long project the reasoning

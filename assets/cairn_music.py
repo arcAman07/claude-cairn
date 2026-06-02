@@ -120,7 +120,7 @@ def main():
 
     stereo = np.tanh(np.stack([L, R], axis=1) * 1.1)
     stereo /= (np.max(np.abs(stereo)) + 1e-9)
-    stereo *= 0.62
+    stereo *= 0.34  # subtle background level (sits low under the video)
     pcm = (stereo * 32767).astype(np.int16)
     with wave.open("/tmp/cairn_music.wav", "w") as w:
         w.setnchannels(2)

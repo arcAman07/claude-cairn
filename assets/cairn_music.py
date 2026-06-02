@@ -48,7 +48,7 @@ def osc(freq, n, detune=0.0):
 
 def trapz_env(n, fade):
     e = np.ones(n)
-    k = int(SR * fade)
+    k = min(int(SR * fade), n // 2)  # never let the fades overrun a short final segment
     if k > 0:
         ramp = np.linspace(0, 1, k)
         e[:k] = ramp

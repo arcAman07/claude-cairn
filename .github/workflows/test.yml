@@ -25,15 +25,16 @@ jobs:
 
       - name: Lint
         run: |
-          python -m pyflakes lib hooks tests
-          python -m ruff check lib hooks tests
+          python -m pyflakes lib hooks tests mcp
+          python -m ruff check lib hooks tests mcp
 
       - name: Unit tests + coverage
         run: |
-          python -m coverage run --source=lib,hooks -m unittest discover -s tests -p "test_*.py"
+          python -m coverage run --source=lib,hooks,mcp -m unittest discover -s tests -p "test_*.py"
           python -m coverage report
 
       - name: Selftest + install verification
         run: |
           python lib/cairn.py selftest
+          python mcp/cairn_mcp.py --selftest
           bash tests/verify_install.sh

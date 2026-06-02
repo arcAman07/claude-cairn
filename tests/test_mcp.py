@@ -141,7 +141,7 @@ class MCPCase(unittest.TestCase):
         ])
         out = io.StringIO()
         M.serve(store=self.store, stdin=io.StringIO(lines), stdout=out)
-        responses = [json.loads(l) for l in out.getvalue().splitlines() if l.strip()]
+        responses = [json.loads(ln) for ln in out.getvalue().splitlines() if ln.strip()]
         # initialize + tools/list + parse-error = 3 responses; the notification = 0
         self.assertEqual(len(responses), 3)
         self.assertEqual(responses[0]["id"], 1)

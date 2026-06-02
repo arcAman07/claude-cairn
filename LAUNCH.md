@@ -6,10 +6,10 @@ Replace `OWNER` with the GitHub org/user before posting.
 ---
 
 ## Tagline options
-1. **Save the thinking. Resume it anywhere.**  ← chosen (used in the video)
-2. Checkpoint the thinking, not the transcript.
-3. Portable thinking-memory for Claude Code.
-4. Your reasoning, carried to the next session.
+1. **Context, shared across sessions.**  ← chosen (used in the video)
+2. Save the thinking. Resume it anywhere.
+3. Checkpoint the thinking, not the transcript.
+4. Portable thinking-memory for Claude Code.
 5. Knowledge continuity for Claude Code.
 
 ---
@@ -31,8 +31,11 @@ Notes are plain markdown in ~/.claude/cairn, load them in any repo, on any machi
 **5/**
 It's a Claude Code plugin, Python stdlib only, no deps. Try it locally: clone, then `claude --plugin-dir ./claude-cairn`. Code + docs → github.com/OWNER/claude-cairn, save the thinking, resume it anywhere.
 
-**Video alt-text:**
-Animation: on a web project, a developer designs two features, auth (JWT + refresh) and a Postgres database, in one Claude Code session. `/cairn:checkpoint auth` and `/cairn:checkpoint database` distill each into its own portable note (Summary, Decisions, Next step). Then two separate terminals each run `/cairn:load` for one feature, "context loaded", and implement them in parallel, the design context already in hand. Ends on the Claude Cairn logo and the tagline "Save the thinking. Resume it anywhere."
+**Video alt-text (current cut):**
+Styled as the Claude Code interface, with prompts typed into the input box and sent up into the transcript. In one session a developer runs two unrelated threads: implementing a Transformer from scratch, and implementing a Soft Actor-Critic (SAC) agent. They run `/cairn:checkpoint transformer` and `/cairn:checkpoint sac`. Then two fresh sessions each run `/cairn:load` for one thread; the resumed context (summary + next step) is already on screen, so each continues cleanly. Ends on the Claude Cairn logo and "Context, shared across sessions."
+
+**Prior video alt-text:**
+Animation styled as a real terminal. In one Claude Code session a developer juggles two unrelated projects: adding LoRA fine-tuning to a model, and implementing a MaxEnt inverse-RL paper from scratch. They run `/cairn:checkpoint lora` and `/cairn:checkpoint inverse-rl`, each saved. The screen then splits into two terminals that each run `/cairn:load` for one project; the resumed context summary (summary plus next step) is already on screen, so work continues from there. Ends on the Claude Cairn logo and the line "Context, shared across sessions."
 
 ---
 

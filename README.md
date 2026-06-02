@@ -126,7 +126,7 @@ a good note, is Claude's job, driven by the prompts in `commands/`. Notes are th
 source of truth; `index.json` is a derived cache that rebuilds itself if lost.
 
 Full details (the note schema, redaction, the digest, the continuity tiers) are in
-**[DESIGN.md](DESIGN.md)**.
+**[DESIGN.md](assets/DESIGN.md)**.
 
 ## Verify it
 
